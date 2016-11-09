@@ -1,0 +1,42 @@
+breed [hormigas hormiga]
+
+hormigas-own[]
+  
+
+patches-own [
+    ; Numero de feromonas en cada zelda de terreno
+    feromonas
+]
+
+to setup
+    clear-all
+    reset-ticks
+
+    create-hormigas 10 [ ;;Mas a delante se tiene que cambiar por una variable global(input)
+        setxy random-xcor random-ycor
+    ]
+    ask patches[
+        set feromonas 0
+    ]
+    
+end
+
+to go
+    
+    ask hormigas[
+        ;Genera feromonas en el patch que esta
+        ask patch-here[
+            set feromonas (feromonas + 2)
+        ]
+        
+        ;Mira los patchs delanteros
+        print patch-ahead-feromonas
+        ;Cual tiene mas feromonas?
+
+        ;un paso a delante hacia le patch seleccionado
+        fd 1
+    ]   
+
+
+    tick
+end
