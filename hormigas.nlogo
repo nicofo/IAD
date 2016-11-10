@@ -8,11 +8,12 @@ patches-own [
     feromonas
 ]
 
+
 to setup
     clear-all
     reset-ticks
 
-    create-hormigas 10 [ ;;Mas a delante se tiene que cambiar por una variable global(input)
+    create-hormigas population [ ;;Mas a delante se tiene que cambiar por una variable global(input)
         setxy random-xcor random-ycor
     ]
     ask patches[
@@ -30,13 +31,63 @@ to go
         ]
 
         ;Mira los patchs delanteros
-        show [feromonas] of patch-ahead 1; Cambiar despues por distancia
+        let valorIzq 0
+        let valorDer 0
+        let valorCen 0
+        let valorMax 0
+        let patchAlgo patch-ahead 1
+        foreach (n-values smell-range[(? + 1)])[; Cambiar despues por distancia
+
+           set valorIzq valorIzq + [feromonas] of (patch-left-and-ahead 45 ?)
+           set valorDer (valorDer + [feromonas] of  patch-right-and-ahead 45 ?)
+           set valorCen (valorCen + [feromonas] of  patch-ahead ?)
+
+        ]
+
+        ifelse (valorIzq > valorMax)[
+            set valorMax valorIzq
+            set patchAlgo patch-left-and-ahead 45 1
+
+        ][
+            if((random 1) = 1) and (valorIzq = valorMax)[
+              set patchAlgo patch-left-and-ahead 45 1
+            ]
+        ]
+        ifelse (valorCen > valorMax)[
+            set valorMax valorCen
+            set patchAlgo patch-ahead 1
+
+        ][
+            if((random 1) = 1) and (valorCen = valorMax)[
+              set patchAlgo patch-ahead 1
+            ]
+        ]
+        ifelse (valorDer > valorMax)[
+            set valorMax valorDer
+            set patchAlgo patch-right-and-ahead 45 1
+
+        ][
+            if((random 1) = 1) and (valorDer = valorMax)[
+              set patchAlgo patch-right-and-ahead 45 1
+            ]
+        ]
+
+
+        face patchAlgo
         ;Cual tiene mas feromonas?
 
         ;un paso a delante hacia le patch seleccionado
         fd 1
     ]
+    ;; difuse
+    diffuse feromonas (diffusion / 100)
 
+    ask patches [
+        ;; disipar
+        if (feromonas > 0)[
+        set feromonas (feromonas * ((100 - evaporation) / 100))
+        ]
+    ]
 
     tick
 end
@@ -101,6 +152,66 @@ NIL
 NIL
 NIL
 1
+
+SLIDER
+6
+228
+178
+261
+population
+population
+1
+10000
+500
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+5
+288
+177
+321
+evaporation
+evaporation
+0
+100
+10
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+6
+338
+178
+371
+diffusion
+diffusion
+0
+100
+90
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+6
+390
+178
+423
+smell-range
+smell-range
+0
+10
+1
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
