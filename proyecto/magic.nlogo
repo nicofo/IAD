@@ -1,5 +1,6 @@
 breed [players player]
 breed [cards card]
+breed [auctions auction]
 
 
 players-own [
@@ -9,13 +10,24 @@ players-own [
   salary
   liking
   deck
-  cum-sal
+  pile
+  acc-salary
+  player-message
 ]
 
 cards-own[
   money-value
   card-value
   card-type
+]
+
+auctions-own [
+  actual-message
+  next-message
+  auction-card-ID
+  card-type
+  card-value
+  player-ID
 ]
 
 to setup
@@ -30,7 +42,8 @@ to setup
     set salary (5 + random 16)
     set liking (n-of 2 ["C" "G" "B" "W" "R" "C" "G" "B" "W" "R"]) ;; C = Cyan (blue), G = Green, B = Black, W = White, R = Red.
     set deck []
-    set cum-sal money
+    set pile []
+    set acc-salary money
   ]
 
     create-cards 3000 [
@@ -54,10 +67,15 @@ end
 
 to go
   tick
+  let auction-messages []
     ask players[
+
     set money (money + salary)
-    set cum-sal (cum-sal + salary)
-    set deck (sentence deck open-pack)
+    set acc-salary (acc-salary + salary)
+    ;set deck (sentence deck open-pack)
+    foreach open-pack[
+      classify-card ?
+    ]
 
     if (random-float 1 < devotion-loss)[
       set devotion (devotion - (1 / 1000))
@@ -65,7 +83,11 @@ to go
     if (devotion <= 0.0)[
       die
     ]
+
   ]
+    create-auctions 1 [
+
+    ]
 end
 
 to-report open-pack
@@ -79,8 +101,80 @@ to-report open-pack
       set money (money - price)
       ]
     report pack
+end
+
+
+
+to classify-card [card-id]
+   ;; Este metodo clasifica las cartas segun vayan en baraja o vayan en biblioteca
+   ;; Si baraja < 50 la carta siempre va
+  ifelse ((([card-type] of card card-id) = first liking ) or (([card-type] of card card-id) = last liking ))[
+    ifelse (length deck < 50)[
+      set deck fput card-id deck
+
+    ]
+  [
+      let card-worst get-worst-card
+     ifelse ([card-value] of card card-id) > ([card-value] of card card-worst)[
+        set deck replace-item(position card-worst deck) deck card-id
+        set pile fput card-worst pile
+      ] [
+       set pile fput card-id pile
+      ]
+    ]
+
+  ][
+    set pile fput card-id pile
+ ]
+
+
 
 end
+
+to-report get-worst-card
+
+  let worst-card (first deck)
+  foreach deck[
+    if [card-value] of card ? < [card-value] of card worst-card[
+      set worst-card ?
+    ]
+  ]
+  report worst-card
+
+end
+
+
+to-report get-best-card
+
+  let best-card (first pile)
+  foreach pile[
+    if [card-value] of card ? > [card-value] of card best-card[
+      set best-card ?
+    ]
+  ]
+  report best-card
+
+end
+
+
+
+to process-message-auction [message]
+  ;; Protocolo:
+  ;; 1. Un player pierde una carta y gana dinero.
+  ;; 2. Un player pierde dinero y gana una carta.
+end
+
+to-report bide
+  ;; El jugador puja
+  let pid who
+  let worst get-worst-card
+  foreach [who] of auctions with [((card-type = first [liking] of player pid) or (card-type = last [liking] of player pid)) and (worst < card-value)][
+
+  ]
+  report 1
+end
+
+
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
