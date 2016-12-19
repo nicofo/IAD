@@ -4,6 +4,8 @@ breed [auctions auction]
 
 
 players-own [
+  actual-messages
+  next-messages
   devotion
   devotion-loss
   money
@@ -12,7 +14,8 @@ players-own [
   deck
   pile
   acc-salary
-  player-message
+  ticks-not-bid
+  active-auction
 ]
 
 cards-own[
@@ -22,9 +25,10 @@ cards-own[
 ]
 
 auctions-own [
-  actual-message
-  next-message
+  actual-messages
+  next-messages
   auction-card-ID
+  auction-price
   card-type
   card-value
   player-ID
@@ -44,6 +48,8 @@ to setup
     set deck []
     set pile []
     set acc-salary money
+    set ticks-not-bid 0
+    set active-auction false
   ]
 
     create-cards 3000 [
@@ -68,10 +74,13 @@ end
 to go
   tick
   let auction-messages []
-    ask players[
+
+
+  ask players[
 
     set money (money + salary)
     set acc-salary (acc-salary + salary)
+    process-all-messages-player
     ;set deck (sentence deck open-pack)
     foreach open-pack[
       classify-card ?
@@ -85,6 +94,8 @@ to go
     ]
 
   ]
+
+
     create-auctions 1 [
 
     ]
@@ -157,22 +168,90 @@ to-report get-best-card
 end
 
 
-
-to process-message-auction [message]
-  ;; Protocolo:
-  ;; 1. Un player pierde una carta y gana dinero.
-  ;; 2. Un player pierde dinero y gana una carta.
-end
-
-to-report bide
+to-report search-bid
+  ;;algoritmo para elegir la mejor carta para pujar
   ;; El jugador puja
   let pid who
   let worst get-worst-card
-  foreach [who] of auctions with [((card-type = first [liking] of player pid) or (card-type = last [liking] of player pid)) and (worst < card-value)][
+  let list-to-bid [who] of auctions with [((card-type = first [liking] of player pid) or (card-type = last [liking] of player pid)) and (worst < card-value)]
+  let auction-to-bid (first ([who] of auctions with [((card-type = first [liking] of player pid) or (card-type = last [liking] of player pid)) and (worst < card-value) and (auction-price <= (devotion * money))]))
+  let not-to-bid false
+
+  if (length list-to-bid) = 0[
+   ;reporta 1 si no hay ninguna
+   report 1
+  ]
+  foreach list-to-bid[
+    ;TODO hacer mejor algoritmo para que haya casos en los que no puje y ahorra
+    ifelse  ([card-value] of auction ? > [card-value] of auction auction-to-bid) and ([auction-price] of auction ? <= (devotion * money))[
+      set auction-to-bid ?
+    ][
+      if ([card-value] of auction ? = [card-value] of auction auction-to-bid) and ([auction-price] of auction ? < [auction-price] of auction auction-to-bid)[
+        set auction-to-bid ?
+      ]
+    ]
 
   ]
-  report 1
+  ifelse not-to-bid = true [
+   report 2
+  ][
+   send-bid (auction auction-to-bid)
+  ]
+  report 0
 end
+
+
+
+;; Procesado y envio de mensajes --------------------------------------------
+;;-----------------------------------------------------------------------------
+
+
+;; mensajes de subasta a jugador------
+
+to process-all-messages-player
+  ;swap mesages
+  set actual-messages next-messages
+  set next-messages []
+  foreach actual-messages [
+      process-message-player (item 0 ?) (item 1 ?) (item 2 ?) ;; Cada mensaje es una lista [emisor tipo mensaje]
+    ]
+
+end
+
+to process-message-player [kind card price]
+  ;; Protocolo:
+  ;; 1. Bought: Un player pierde dinero y gana una carta.
+  ;; 2. Sold: Un player pierde una carta y gana dinero.
+  if kind = "Bought" [
+    set money (money - price)
+    classify-card card
+  ]
+
+  if kind = "Sold" [
+    set money (money + price)
+    set pile remove-item (position card pile) pile
+  ]
+end
+
+to send-message [recipient kind card price]
+
+  ask recipient [
+    set next-messages lput (list kind card price) next-messages
+  ]
+end
+
+
+
+
+;;mensaje de jugador a subasta-------------------
+
+to send-bid [recipient]
+
+  ask recipient [
+    set next-messages lput (myself) next-messages
+  ]
+end
+
 
 
 @#$#@#$#@
