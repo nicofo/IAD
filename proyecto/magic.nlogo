@@ -22,6 +22,7 @@ cards-own[
   money-value
   card-value
   card-type
+  last-price
 ]
 
 auctions-own [
@@ -31,7 +32,9 @@ auctions-own [
   auction-price
   card-type
   card-value
+  time-not-bid
   player-ID
+
 ]
 
 to setup
@@ -55,16 +58,19 @@ to setup
     create-cards 3000 [
     set card-value (1 + random 5)
     set card-type (one-of ["C" "G" "B" "W" "R"])
+    set last-price 20
     hide-turtle
   ]
     create-cards 1000 [
     set card-value (6 + random 2)
     set card-type (one-of ["C" "G" "B" "W" "R"])
+    set last-price 20
     hide-turtle
   ]
     create-cards 1000 [
     set card-value (7 + random 4)
     set card-type (one-of ["C" "G" "B" "W" "R"])
+    set last-price 20
     hide-turtle
   ]
 
@@ -138,9 +144,35 @@ to classify-card [card-id]
     set pile fput card-id pile
  ]
 
+end
+
+to check-auction [player-list]
+  ifelse length player-list > 1
+    [set card-value (card-value * 1.05)]
+    [ifelse length player-list = 0
+      [set card-value (card-value - (card-value*1.03 - card-value))]
+      [send-message [first player-list "Bought" auction-card-ID card-value]
+       send-message [player-ID "Sold" auction-card-ID card-value]
+    ]
+
+end
+
+
+to check-auction
+  ifelse length actual-messages > 1 [
+    set card-value (card-value * 1.05)
+  ][
+    ifelse length player-list = 0
+      [set card-value (card-value * 0.97)]
+      [send-message [first player-list "Bought" auction-card-ID card-value]
+       send-message [player-ID "Sold" auction-card-ID card-value]
+  ]
 
 
 end
+
+
+
 
 to-report get-worst-card
 
@@ -251,6 +283,8 @@ to send-bid [recipient]
     set next-messages lput (myself) next-messages
   ]
 end
+
+
 
 
 
