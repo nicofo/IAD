@@ -61,14 +61,14 @@ to setup
     set last-price 20
     hide-turtle
   ]
- create-players 100 [
+ create-players 500 [
     setxy random-xcor random-ycor
     set actual-messages []
     set next-messages []
     set devotion 1
     set devotion-loss ((1 + random 15) / 100)
-    set money (100 + random 101)
-    set salary (5 + random 16)
+    set money (500 + random 201)
+    set salary (1 + random 2)
     set liking (n-of 2 ["C" "G" "B" "W" "R" "C" "G" "B" "W" "R"]) ;; C = Cyan (blue), G = Green, B = Black, W = White, R = Red.
     set deck []
     set pile []
@@ -76,6 +76,15 @@ to setup
     set ticks-not-bid 0
     set active-auction false
 
+    foreach open-pack[
+      classify-card ?
+    ]
+    foreach open-pack[
+      classify-card ?
+    ]
+    foreach open-pack[
+      classify-card ?
+    ]
     foreach open-pack[
       classify-card ?
     ]
@@ -113,7 +122,7 @@ to go
       ]
     ]
     if (active-auction = false) and  (length pile > 0)[
-      set auction-creation-messages lput (list who get-best-card) auction-creation-messages
+      set auction-creation-messages lput (list who queue-pile) auction-creation-messages
       set active-auction true
     ]
     if (devotion <= -0.5)[
@@ -138,6 +147,13 @@ to go
     auction-creation (item 0 ?) (item 1 ?)
 
   ]
+end
+
+to-report queue-pile
+  let card-to-bid (first pile)
+  set pile remove-item 0 pile
+  set pile lput card-to-bid pile
+  report card-to-bid
 end
 
 to auction-creation[ player-who card-id]
@@ -348,7 +364,6 @@ to send-bid [recipient]
     set next-messages lput (myself) next-messages
   ]
 end
-
 
 
 
