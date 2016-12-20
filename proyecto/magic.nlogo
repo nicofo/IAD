@@ -50,13 +50,31 @@ to setup
     hide-turtle
   ]
     create-cards 1000 [
-    set card-value (6 + random 2)
+    let rand random 10
+    ifelse (rand <= 5)[
+      set card-value 6
+    ][
+      set card-value 7
+    ]
     set card-type (one-of ["C" "G" "B" "W" "R"])
     set last-price 20
     hide-turtle
   ]
     create-cards 1000 [
-    set card-value (7 + random 4)
+    let rand random 10
+    ifelse (rand <= 4) [
+      set card-value 7
+    ][
+      ifelse (rand <= 7)[
+        set card-value 8
+      ][
+        ifelse (rand <= 9)[
+          set card-value 9
+        ][
+          set card-value 10
+        ]
+      ]
+    ]
     set card-type (one-of ["C" "G" "B" "W" "R"])
     set last-price 20
     hide-turtle
