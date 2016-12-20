@@ -41,19 +41,7 @@ to setup
     clear-all
     reset-ticks
 
-  create-players 10 [
-    setxy random-xcor random-ycor
-    set devotion 1
-    set devotion-loss ((1 + random 15) / 100)
-    set money (100 + random 101)
-    set salary (5 + random 16)
-    set liking (n-of 2 ["C" "G" "B" "W" "R" "C" "G" "B" "W" "R"]) ;; C = Cyan (blue), G = Green, B = Black, W = White, R = Red.
-    set deck []
-    set pile []
-    set acc-salary money
-    set ticks-not-bid 0
-    set active-auction false
-  ]
+
 
     create-cards 3000 [
     set card-value (1 + random 5)
@@ -73,13 +61,31 @@ to setup
     set last-price 20
     hide-turtle
   ]
+ create-players 100 [
+    setxy random-xcor random-ycor
+    set actual-messages []
+    set next-messages []
+    set devotion 1
+    set devotion-loss ((1 + random 15) / 100)
+    set money (100 + random 101)
+    set salary (5 + random 16)
+    set liking (n-of 2 ["C" "G" "B" "W" "R" "C" "G" "B" "W" "R"]) ;; C = Cyan (blue), G = Green, B = Black, W = White, R = Red.
+    set deck []
+    set pile []
+    set acc-salary money
+    set ticks-not-bid 0
+    set active-auction false
 
+    foreach open-pack[
+      classify-card ?
+    ]
+  ]
 
 end
 
 to go
   tick
-  let auction-messages []
+  let auction-creation-messages []
 
 
   ask players[
@@ -88,24 +94,67 @@ to go
     set acc-salary (acc-salary + salary)
     process-all-messages-player
     ;set deck (sentence deck open-pack)
-    foreach open-pack[
-      classify-card ?
-    ]
-
     if (random-float 1 < devotion-loss)[
       set devotion (devotion - (1 / 1000))
     ]
-    if (devotion <= 0.0)[
+
+    ;; Comprar cartes
+    if (devotion > 0)[
+      ifelse search-bid >= 1[;; comprar en subasta
+        set ticks-not-bid (ticks-not-bid + 1)
+      ][
+        set ticks-not-bid 0
+      ]
+      if ticks-not-bid > 20[;;comprar pack
+        foreach open-pack[
+          classify-card ?
+        ]
+        set ticks-not-bid 0
+      ]
+    ]
+    if (active-auction = false) and  (length pile > 0)[
+      set auction-creation-messages lput (list who get-best-card) auction-creation-messages
+      set active-auction true
+    ]
+    if (devotion <= -0.5)[
       die
     ]
 
   ]
 
-
-    create-auctions 1 [
-
+  ask auctions[
+    set actual-messages next-messages
+    set next-messages []
+    check-auction
+    if time-not-bid > 9[
+      ask player player-ID[
+        set active-auction false
+      ]
+      die
     ]
+  ]
+
+  foreach auction-creation-messages [
+    auction-creation (item 0 ?) (item 1 ?)
+
+  ]
 end
+
+to auction-creation[ player-who card-id]
+  create-auctions 1[
+    set actual-messages []
+    set next-messages []
+    set auction-card-ID card-id
+    set auction-price ([last-price] of card card-id)
+    set card-type ([card-type] of card card-id)
+    set card-value ([card-value] of card card-id)
+    set time-not-bid 0
+    set player-ID player-who
+    hide-turtle
+  ]
+
+end
+
 
 to-report open-pack
   ;; TODO pasar las configuraciones a nlogo - price
@@ -146,26 +195,26 @@ to classify-card [card-id]
 
 end
 
-to check-auction [player-list]
-  ifelse length player-list > 1
-    [set card-value (card-value * 1.05)]
-    [ifelse length player-list = 0
-      [set card-value (card-value - (card-value*1.03 - card-value))]
-      [send-message [first player-list "Bought" auction-card-ID card-value]
-       send-message [player-ID "Sold" auction-card-ID card-value]
-    ]
-
-end
 
 
 to check-auction
   ifelse length actual-messages > 1 [
     set card-value (card-value * 1.05)
+    set time-not-bid 0
   ][
-    ifelse length player-list = 0
-      [set card-value (card-value * 0.97)]
-      [send-message [first player-list "Bought" auction-card-ID card-value]
-       send-message [player-ID "Sold" auction-card-ID card-value]
+    ifelse length actual-messages = 0[
+        set card-value (card-value * 0.97)
+        set time-not-bid (time-not-bid + 1)
+      ]
+      [
+       send-message  ((first actual-messages)) "Bought" auction-card-ID auction-price
+       send-message  (player player-ID) "Sold" auction-card-ID (0.99 * auction-price)
+       let price-here auction-price
+       ask card auction-card-id [
+         set last-price price-here
+       ]
+       die
+      ]
   ]
 
 
@@ -204,15 +253,25 @@ to-report search-bid
   ;;algoritmo para elegir la mejor carta para pujar
   ;; El jugador puja
   let pid who
-  let worst get-worst-card
-  let list-to-bid [who] of auctions with [((card-type = first [liking] of player pid) or (card-type = last [liking] of player pid)) and (worst < card-value)]
-  let auction-to-bid (first ([who] of auctions with [((card-type = first [liking] of player pid) or (card-type = last [liking] of player pid)) and (worst < card-value) and (auction-price <= (devotion * money))]))
-  let not-to-bid false
-
+  let worst 0
+  let list-to-bid []
+  ifelse length deck >= 50 [
+    set worst get-worst-card
+    set list-to-bid [who] of auctions with [((card-type = first [liking] of player pid) or (card-type = last [liking] of player pid)) and (worst < card-value)]
+  ][
+    set list-to-bid [who] of auctions with [((card-type = first [liking] of player pid) or (card-type = last [liking] of player pid)) ]
+  ]
   if (length list-to-bid) = 0[
    ;reporta 1 si no hay ninguna
+
    report 1
   ]
+  let tmp-devotion devotion
+  let tmp-money money
+  let auction-to-bid (first list-to-bid)
+  let not-to-bid false
+
+
   foreach list-to-bid[
     ;TODO hacer mejor algoritmo para que haya casos en los que no puje y ahorra
     ifelse  ([card-value] of auction ? > [card-value] of auction auction-to-bid) and ([auction-price] of auction ? <= (devotion * money))[
@@ -225,8 +284,10 @@ to-report search-bid
 
   ]
   ifelse not-to-bid = true [
+
    report 2
   ][
+
    send-bid (auction auction-to-bid)
   ]
   report 0
@@ -250,18 +311,22 @@ to process-all-messages-player
 
 end
 
-to process-message-player [kind card price]
+to process-message-player [kind card-transaction price]
   ;; Protocolo:
   ;; 1. Bought: Un player pierde dinero y gana una carta.
   ;; 2. Sold: Un player pierde una carta y gana dinero.
   if kind = "Bought" [
     set money (money - price)
-    classify-card card
+    classify-card card-transaction
+    print (word self " compra carta " card-transaction " y pierde " price " dinero")
   ]
 
   if kind = "Sold" [
     set money (money + price)
-    set pile remove-item (position card pile) pile
+    set pile remove-item (position card-transaction pile) pile
+    set active-auction false
+
+    print (word self "vende carta " card-transaction " y gana " price " dinero")
   ]
 end
 
