@@ -79,7 +79,7 @@ to setup
     set last-price 20
     hide-turtle
   ]
- create-players 500 [
+ create-players 50 [
     setxy random-xcor random-ycor
     set actual-messages []
     set next-messages []
@@ -114,6 +114,37 @@ to go
   tick
   let auction-creation-messages []
 
+  let chance-player-creation random 101
+  if (chance-player-creation = 100)[
+    create-players 1 [
+    setxy random-xcor random-ycor
+    set actual-messages []
+    set next-messages []
+    set devotion 1
+    set devotion-loss ((1 + random 15) / 100)
+    set money (500 + random 201)
+    set salary (1 + random 2)
+    set liking (n-of 2 ["C" "G" "B" "W" "R" "C" "G" "B" "W" "R"]) ;; C = Cyan (blue), G = Green, B = Black, W = White, R = Red.
+    set deck []
+    set pile []
+    set acc-salary money
+    set ticks-not-bid 0
+    set active-auction false
+
+    foreach open-pack[
+      classify-card ?
+    ]
+    foreach open-pack[
+      classify-card ?
+    ]
+    foreach open-pack[
+      classify-card ?
+    ]
+    foreach open-pack[
+      classify-card ?
+    ]
+    ]
+  ]
 
   ask players[
 
