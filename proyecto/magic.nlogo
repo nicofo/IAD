@@ -187,7 +187,7 @@ to go
 
     ;; retar jugadors
 
-    if (length deck >= 50) [
+    if (length deck >= 50) and (random (100 - duel-chance) = 0)[
       let p who
       let enemy-list [who] of players with [(length deck >= 50) and (p != who)]
       if (length enemy-list > 0)[
@@ -444,11 +444,11 @@ end
 
 to duel [rival]
    ifelse mean map[[card-value] of card ?] deck > mean map[[card-value] of card ?] ([deck] of  player rival)[
-    set devotion (devotion + 1)
-    ask player rival [set devotion (devotion - 1)]
+    set devotion (devotion + 0.01)
+    ask player rival [set devotion (devotion - 0.01)]
   ][
-    set devotion (devotion - 1)
-    ask player rival [set devotion (devotion + 1)]
+    set devotion (devotion - 0.01)
+    ask player rival [set devotion (devotion + 0.01)]
   ]
 end
 
