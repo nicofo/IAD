@@ -120,6 +120,7 @@ to setup
 
 end
 
+
 to go
   let auction-creation-messages []
 
@@ -183,6 +184,19 @@ to go
       set auction-creation-messages lput (list who queue-pile) auction-creation-messages
       set active-auction true
     ]
+
+    ;; retar jugadors
+
+    if (length deck >= 50) [
+      let p who
+      let enemy-list [who] of players with [(length deck >= 50) and (p != who)]
+      if (length enemy-list > 0)[
+        duel one-of enemy-list
+      ]
+    ]
+
+
+    ;; matar agent
     if (devotion <= -0.5)[
       die
     ]
@@ -425,6 +439,16 @@ to send-bid [recipient]
 
   ask recipient [
     set next-messages lput (myself) next-messages
+  ]
+end
+
+to duel [rival]
+   ifelse mean map[[card-value] of card ?] deck > mean map[[card-value] of card ?] ([deck] of  player rival)[
+    set devotion (devotion + 1)
+    ask player rival [set devotion (devotion - 1)]
+  ][
+    set devotion (devotion - 1)
+    ask player rival [set devotion (devotion + 1)]
   ]
 end
 
