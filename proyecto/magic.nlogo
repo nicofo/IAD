@@ -20,7 +20,7 @@ players-own [
   deck
   pile
   acc-salary
-  ticks-not-bid
+  ticks-not-won
   active-auction
 ]
 
@@ -40,6 +40,7 @@ auctions-own [
   card-value
   time-not-bid
   player-ID
+  last-price
 
 ]
 
@@ -88,70 +89,44 @@ to setup
   ]
 
  create-players creation-of-players [
+   setup-player
 
-    setxy random-xcor random-ycor
-    set actual-messages []
-    set next-messages []
-    set devotion 1
-    set devotion-loss ((1 + random 15) / 100)
-    set money (500 + random 201)
-    set salary (1 + random 2)
-    set liking (n-of 2 ["C" "G" "B" "W" "R" "C" "G" "B" "W" "R"]) ;; C = Cyan (blue), G = Green, B = Black, W = White, R = Red.
-    set deck []
-    set pile []
-    set acc-salary money
-    set ticks-not-bid 0
-    set active-auction false
-
-    foreach open-pack[
-      classify-card ?
-    ]
-    foreach open-pack[
-      classify-card ?
-    ]
-    foreach open-pack[
-      classify-card ?
-    ]
-    foreach open-pack[
-      classify-card ?
-    ]
   ]
  reset-ticks
 
 end
 
-to go
-  let auction-creation-messages []
-
-  let chance-player-creation random 101
-  if (chance-player-creation = 100)[
-    create-players 1 [
-    setxy random-xcor random-ycor
+to setup-player
+  setxy random-xcor random-ycor
     set actual-messages []
     set next-messages []
     set devotion 1
     set devotion-loss ((1 + random 15) / 100)
-    set money (500 + random 201)
+    set money (initial-packs * pack-price  + initial-money-min + random (initial-money-max - initial-money-min))
     set salary (1 + random 2)
     set liking (n-of 2 ["C" "G" "B" "W" "R" "C" "G" "B" "W" "R"]) ;; C = Cyan (blue), G = Green, B = Black, W = White, R = Red.
-    set deck []
+    set deck open-deck
     set pile []
     set acc-salary money
-    set ticks-not-bid 0
+    set ticks-not-won 0
     set active-auction false
+    repeat initial-packs[
+      foreach open-pack[
+        classify-card ?
+      ]
+    ]
 
-    foreach open-pack[
-      classify-card ?
-    ]
-    foreach open-pack[
-      classify-card ?
-    ]
-    foreach open-pack[
-      classify-card ?
-    ]
-    foreach open-pack[
-      classify-card ?
-    ]
+
+end
+
+
+to go
+  let auction-creation-messages []
+
+
+  if (random (100 - prob-create-player) = 1)[
+    create-players 1 [
+      setup-player
     ]
   ]
 
@@ -167,16 +142,21 @@ to go
 
     ;; Comprar cartes
     if (devotion > 0)[
-      ifelse search-bid >= 1[;; comprar en subasta
-        set ticks-not-bid (ticks-not-bid + 1)
-      ][
-        set ticks-not-bid 0
-      ]
-      if ticks-not-bid > 10[;;comprar pack
+      if random (100 - prob-pack) = 1[
         foreach open-pack[
           classify-card ?
         ]
-        set ticks-not-bid 0
+      ]
+      ifelse search-bid >= 1[;; comprar en subasta
+        set ticks-not-won (ticks-not-won + 1)
+      ][
+        set ticks-not-won 0 ;(ticks-not-won + 1)
+      ]
+      if ticks-not-won > 10[;;comprar pack
+        foreach open-pack[
+          classify-card ?
+        ]
+        set ticks-not-won 0
       ]
     ]
     if (active-auction = false) and  (length pile > 0)[
@@ -188,6 +168,8 @@ to go
     ]
 
   ]
+
+
 
   ask auctions[
     set actual-messages next-messages
@@ -226,6 +208,7 @@ to auction-creation[ player-who card-id]
     set card-value ([card-value] of card card-id)
     set time-not-bid 0
     set player-ID player-who
+    set last-price (auction-price * 0.5)
     hide-turtle
   ]
 
@@ -236,14 +219,27 @@ to-report open-pack
   ;; TODO pasar las configuraciones a nlogo - price
 
   let pack []
-  set acc-pack (acc-pack + 1)
-  set acc-pack-money (acc-pack-money + pack-price)
+
   if money >= pack-price [
+    set acc-pack (acc-pack + 1)
+    set acc-pack-money (acc-pack-money + pack-price)
       set pack (sentence pack n-of 3 ([who] of cards with [card-value < 6]))
       set pack (sentence pack one-of ([who] of cards with [((card-value < 8) and (card-value > 5))]))
       set pack (sentence pack one-of ([who] of cards with [(card-value > 7)]))
       set money (money - pack-price)
       ]
+    report pack
+end
+
+to-report open-deck
+
+  let pack []
+
+  let liking-player liking
+    set pack (sentence pack n-of 30 ([who] of cards with [(card-value < 6) and ((card-type = first liking-player) or (card-type = last liking-player))]))
+    set pack (sentence pack n-of 15 ([who] of cards with [((card-value < 8) and (card-value > 5) and ((card-type = first liking-player) or (card-type = last liking-player)))]))
+    set pack (sentence pack n-of 5 ([who] of cards with [(card-value > 7) and ((card-type = first liking-player) or (card-type = last liking-player))]))
+
     report pack
 end
 
@@ -281,19 +277,35 @@ to check-auction
     send-message  (player player-ID) "Sold" auction-card-ID (0.99 * auction-price)
     let price-here auction-price
     ask card auction-card-id [
+      ifelse price-here >= 2[
        set last-price price-here
+      ][
+        set last-price 2
+      ]
     ]
     die
 
   ][
     ifelse length actual-messages = 0[
-        set auction-price (auction-price * 0.96)
-        set time-not-bid (time-not-bid + 1)
+      ifelse abs (auction-price - last-price) > 0[
+        set auction-price (auction-price - abs (auction-price - last-price))
+        set last-price auction-price
+      ][
+        set auction-price (auction-price * 0.9)
+        set last-price auction-price
+
       ]
-      [
-       set auction-price (auction-price * 1.1)
+    ]
+    [
+     ifelse length actual-messages > 50[
+       set last-price auction-price
+       set auction-price (auction-price * (1 + (length actual-messages / (100 * (50 / percent-up-auction) + (random 5 / 100)))))
        set time-not-bid 0
-      ]
+     ][
+       set last-price auction-price
+       set auction-price (auction-price * (1 + (50 / (100 * (50 / percent-up-auction)))  + (random 5 / 100) ))
+     ]
+    ]
   ]
 
 
@@ -397,7 +409,8 @@ to process-message-player [kind card-transaction price]
   if kind = "Bought" [
     set money (money - price)
     classify-card card-transaction
-    print (word self " compra carta " card-transaction " y pierde " price " dinero")
+    set ticks-not-won 0
+    print (word self " subastada carta " card-transaction " como  " [card-type ] of card card-transaction " " [card-value] of card card-transaction  " por "price " dinero")
   ]
 
   if kind = "Sold" [
@@ -405,7 +418,7 @@ to process-message-player [kind card-transaction price]
     set pile remove-item (position card-transaction pile) pile
     set active-auction false
 
-    print (word self "vende carta " card-transaction " y gana " price " dinero")
+
   ]
 end
 
@@ -427,8 +440,6 @@ to send-bid [recipient]
     set next-messages lput (myself) next-messages
   ]
 end
-
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 185
@@ -634,10 +645,10 @@ Auction Info
 1
 
 PLOT
-563
-408
-763
-558
+549
+391
+1012
+624
 Price
 Ticks
 Price
@@ -653,10 +664,10 @@ PENS
 "Max" 1.0 0 -2674135 true "" "plot max [auction-price] of auctions"
 
 MONITOR
-778
-388
-865
-433
+1206
+394
+1293
+439
 Num. Auction
 count auctions
 17
@@ -664,10 +675,10 @@ count auctions
 11
 
 MONITOR
-794
-480
-930
-525
+1209
+462
+1345
+507
 Total auctions created
 acc-auctions
 17
@@ -675,10 +686,10 @@ acc-auctions
 11
 
 PLOT
-1002
-460
-1202
-610
+549
+629
+1020
+867
 Bid per auction
 Num of bid
 Ticks
@@ -694,10 +705,10 @@ PENS
 "Max" 1.0 0 -2674135 true "" "plot max [length actual-messages] of auctions"
 
 MONITOR
-559
-650
-651
-695
+138
+597
+230
+642
 Packs Opened
 acc-pack
 17
@@ -705,44 +716,189 @@ acc-pack
 11
 
 TEXTBOX
-557
-622
-707
-640
+139
+572
+289
+590
 Balances
 14
 0.0
 1
 
 SLIDER
-107
-167
-279
-200
+135
+150
+307
+183
 pack-price
 pack-price
 0
 1000
-357
+102
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-122
-227
-294
-260
+135
+187
+307
+220
 creation-of-players
 creation-of-players
-0
+1
 1000
-1000
+503
 1
 1
 NIL
 HORIZONTAL
+
+MONITOR
+261
+596
+364
+641
+NIL
+acc-pack-money
+17
+1
+11
+
+SLIDER
+135
+222
+307
+255
+prob-pack
+prob-pack
+0
+100
+64
+1
+1
+NIL
+HORIZONTAL
+
+MONITOR
+1032
+641
+1098
+686
+Mean  bid
+mean [length actual-messages] of auctions
+17
+1
+11
+
+SLIDER
+135
+254
+307
+287
+initial-packs
+initial-packs
+0
+10
+5
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+135
+288
+307
+321
+percent-up-auction
+percent-up-auction
+1
+50
+10
+1
+1
+%
+HORIZONTAL
+
+MONITOR
+1029
+393
+1146
+438
+mean price auction
+mean [auction-price] of auctions
+17
+1
+11
+
+MONITOR
+1037
+452
+1147
+497
+Max price auction
+max [auction-price] of auctions
+17
+1
+11
+
+SLIDER
+134
+324
+306
+357
+initial-money-min
+initial-money-min
+10
+1000
+100
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+135
+356
+307
+389
+initial-money-max
+initial-money-max
+50
+2000
+200
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+135
+389
+307
+422
+prob-create-player
+prob-create-player
+1
+100
+8
+1
+1
+%
+HORIZONTAL
+
+MONITOR
+1312
+128
+1407
+173
+mean devotion
+mean [devotion] of players
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
