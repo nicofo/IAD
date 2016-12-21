@@ -1,3 +1,9 @@
+globals[
+  acc-auctions
+  acc-players
+  acc-pack
+  acc-pack-money
+]
 breed [players player]
 breed [cards card]
 breed [auctions auction]
@@ -39,10 +45,11 @@ auctions-own [
 
 to setup
     clear-all
-    reset-ticks
+    ;;variables globales para plot
+    set acc-auctions 0
+    set acc-pack 0
 
-
-
+    ;creates
     create-cards 3000 [
     set card-value (1 + random 5)
     set card-type (one-of ["C" "G" "B" "W" "R"])
@@ -79,7 +86,7 @@ to setup
     set last-price 20
     hide-turtle
   ]
- create-players 500 [
+ create-players creation-of-players [
     setxy random-xcor random-ycor
     set actual-messages []
     set next-messages []
@@ -107,11 +114,11 @@ to setup
       classify-card ?
     ]
   ]
+ reset-ticks
 
 end
 
 to go
-  tick
   let auction-creation-messages []
 
 
@@ -132,7 +139,7 @@ to go
       ][
         set ticks-not-bid 0
       ]
-      if ticks-not-bid > 20[;;comprar pack
+      if ticks-not-bid > 10[;;comprar pack
         foreach open-pack[
           classify-card ?
         ]
@@ -163,8 +170,10 @@ to go
 
   foreach auction-creation-messages [
     auction-creation (item 0 ?) (item 1 ?)
+    set acc-auctions (acc-auctions + 1)
 
   ]
+  tick
 end
 
 to-report queue-pile
@@ -192,13 +201,15 @@ end
 
 to-report open-pack
   ;; TODO pasar las configuraciones a nlogo - price
-  let price 100
+
   let pack []
-  if money >= price [
+  set acc-pack (acc-pack + 1)
+  set acc-pack-money (acc-pack-money + pack-price)
+  if money >= pack-price [
       set pack (sentence pack n-of 3 ([who] of cards with [card-value < 6]))
       set pack (sentence pack one-of ([who] of cards with [((card-value < 8) and (card-value > 5))]))
       set pack (sentence pack one-of ([who] of cards with [(card-value > 7)]))
-      set money (money - price)
+      set money (money - pack-price)
       ]
     report pack
 end
@@ -232,22 +243,23 @@ end
 
 
 to check-auction
-  ifelse length actual-messages > 1 [
-    set card-value (card-value * 1.05)
-    set time-not-bid 0
+  ifelse length actual-messages = 1 [
+    send-message  ((first actual-messages)) "Bought" auction-card-ID auction-price
+    send-message  (player player-ID) "Sold" auction-card-ID (0.99 * auction-price)
+    let price-here auction-price
+    ask card auction-card-id [
+       set last-price price-here
+    ]
+    die
+
   ][
     ifelse length actual-messages = 0[
-        set card-value (card-value * 0.97)
+        set auction-price (auction-price * 0.96)
         set time-not-bid (time-not-bid + 1)
       ]
       [
-       send-message  ((first actual-messages)) "Bought" auction-card-ID auction-price
-       send-message  (player player-ID) "Sold" auction-card-ID (0.99 * auction-price)
-       let price-here auction-price
-       ask card auction-card-id [
-         set last-price price-here
-       ]
-       die
+       set auction-price (auction-price * 1.1)
+       set time-not-bid 0
       ]
   ]
 
@@ -291,9 +303,9 @@ to-report search-bid
   let list-to-bid []
   ifelse length deck >= 50 [
     set worst get-worst-card
-    set list-to-bid [who] of auctions with [((card-type = first [liking] of player pid) or (card-type = last [liking] of player pid)) and (worst < card-value)]
+    set list-to-bid [who] of auctions with [((card-type = first [liking] of player pid) or (card-type = last [liking] of player pid)) and (worst < card-value) and (auction-price <= ([devotion] of player pid * [money] of player pid ))]
   ][
-    set list-to-bid [who] of auctions with [((card-type = first [liking] of player pid) or (card-type = last [liking] of player pid)) ]
+    set list-to-bid [who] of auctions with [((card-type = first [liking] of player pid) or (card-type = last [liking] of player pid)) and (auction-price <= ([devotion] of player pid * [money] of player pid ))]
   ]
   if (length list-to-bid) = 0[
    ;reporta 1 si no hay ninguna
@@ -385,15 +397,14 @@ end
 
 
 
-
 @#$#@#$#@
 GRAPHICS-WINDOW
-210
-10
-1117
-782
-34
-28
+185
+24
+430
+94
+7
+1
 13.0
 1
 10
@@ -404,10 +415,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--34
-34
--28
-28
+-7
+7
+-1
+1
 0
 0
 1
@@ -447,6 +458,259 @@ NIL
 NIL
 NIL
 1
+
+MONITOR
+557
+63
+614
+108
+Players
+count players
+17
+1
+11
+
+TEXTBOX
+550
+18
+700
+36
+Players info
+14
+0.0
+1
+
+TEXTBOX
+147
+118
+297
+136
+Setup options
+14
+0.0
+1
+
+MONITOR
+629
+63
+1023
+108
+ Liking
+word \"Blue \" count players with[\"C\" = first liking or \"C\" = last liking]\nword \"  -  Red \" count players with[\"R\" = first liking or \"R\" = last liking]\nword \"  -  Green \" count players with[\"G\" = first liking or \"G\" = last liking]\nword \"  -  Black \" count players with[\"B\" = first liking or \"B\" = last liking]\nword \"  -  White \" count players with[\"W\" = first liking or \"W\" = last liking]
+17
+1
+11
+
+MONITOR
+1062
+63
+1142
+108
+mean salary
+mean [salary] of players
+17
+1
+11
+
+PLOT
+562
+141
+762
+291
+Deck number of cards
+Ticks
+Num cards  in deck
+0.0
+100.0
+0.0
+50.0
+false
+true
+"" ""
+PENS
+"Mean " 1.0 0 -16777216 true "" "plot mean ([length deck] of players)"
+"Max" 1.0 0 -2674135 true "" "plot max ([length deck] of players)"
+
+PLOT
+846
+150
+1046
+300
+Value deck
+Ticks
+Value
+0.0
+100.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"Mean" 1.0 0 -16777216 true "" "plot mean [mean (map [[card-value] of card ?] deck)] of players with [length deck > 0] ;[card-value] of card ?"
+"Max mean" 1.0 0 -2674135 true "" "plot max [mean map [[card-value] of card ?] deck] of players with [length deck > 0]"
+
+PLOT
+1127
+177
+1327
+327
+Money
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"Mean" 1.0 0 -16777216 true "" "plot mean [money] of players"
+"Max" 1.0 0 -2674135 true "" "plot max [money] of players"
+
+MONITOR
+1366
+216
+1449
+261
+Mean money
+mean [money] of players
+17
+1
+11
+
+MONITOR
+1376
+281
+1453
+326
+Max money
+max [money] of players
+17
+1
+11
+
+TEXTBOX
+548
+377
+698
+395
+Auction Info
+14
+0.0
+1
+
+PLOT
+563
+408
+763
+558
+Price
+Ticks
+Price
+0.0
+10.0
+0.0
+10.0
+true
+true
+"" ""
+PENS
+"mean" 1.0 0 -16777216 true "" "plot mean [auction-price] of auctions"
+"Max" 1.0 0 -2674135 true "" "plot max [auction-price] of auctions"
+
+MONITOR
+778
+388
+865
+433
+Num. Auction
+count auctions
+17
+1
+11
+
+MONITOR
+794
+480
+930
+525
+Total auctions created
+acc-auctions
+17
+1
+11
+
+PLOT
+1002
+460
+1202
+610
+Bid per auction
+Num of bid
+Ticks
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"mean " 1.0 0 -16777216 true "" "plot mean [length actual-messages] of auctions"
+"Max" 1.0 0 -2674135 true "" "plot max [length actual-messages] of auctions"
+
+MONITOR
+559
+650
+651
+695
+Packs Opened
+acc-pack
+17
+1
+11
+
+TEXTBOX
+557
+622
+707
+640
+Balances
+14
+0.0
+1
+
+SLIDER
+107
+167
+279
+200
+pack-price
+pack-price
+0
+1000
+357
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+122
+227
+294
+260
+creation-of-players
+creation-of-players
+0
+1000
+1000
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
