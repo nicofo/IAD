@@ -22,6 +22,11 @@ players-own [
   acc-salary
   ticks-not-won
   active-auction
+  duels
+  duels-won
+  type-of-player
+  inversion
+
 ]
 
 cards-own[
@@ -110,6 +115,18 @@ to setup-player
     set acc-salary money
     set ticks-not-won 0
     set active-auction false
+    set duels 0
+    set duels-won 0
+    set inversion 0
+    ifelse questions = 1[
+      set type-of-player (random 2 + 1)
+    ][
+      set type-of-player (random 3 + 1)
+    ]
+    ;types:
+    ;1- Compran la mejor carta posible
+    ;2- Compran la carta m
+    ;3- Se basan en sobres princiaplmente
     repeat initial-packs[
       foreach open-pack[
         classify-card ?
@@ -142,21 +159,29 @@ to go
 
     ;; Comprar cartes
     if (devotion > 0)[
-      if random (100 - prob-pack) = 1[
-        foreach open-pack[
-          classify-card ?
+      ;type 1 y 2
+      ifelse type-of-player < 3[
+        if random (100 - prob-pack) = 1[
+          foreach open-pack[
+            classify-card ?
+          ]
         ]
-      ]
-      ifelse search-bid >= 1[;; comprar en subasta
-        set ticks-not-won (ticks-not-won + 1)
-      ][
+        ifelse search-bid >= 1[;; comprar en subasta
+          set ticks-not-won (ticks-not-won + 1)
+        ][
         set ticks-not-won 0 ;(ticks-not-won + 1)
-      ]
-      if ticks-not-won > 10[;;comprar pack
+        ]
+        if ticks-not-won > 10[;;comprar pack
+          foreach open-pack[
+            classify-card ?
+          ]
+          set ticks-not-won 0
+        ]
+      ][
+        ;type 3
         foreach open-pack[
           classify-card ?
         ]
-        set ticks-not-won 0
       ]
     ]
     if (active-auction = false) and  (length pile > 0)[
@@ -240,6 +265,7 @@ to-report open-pack
       set pack (sentence pack one-of ([who] of cards with [((card-value < 8) and (card-value > 5))]))
       set pack (sentence pack one-of ([who] of cards with [(card-value > 7)]))
       set money (money - pack-price)
+      set inversion (inversion + pack-price)
       ]
     report pack
 end
@@ -308,6 +334,7 @@ to check-auction
         set last-price auction-price
 
       ]
+      set time-not-bid ( time-not-bid + 1)
     ]
     [
      ifelse length actual-messages > 50[
@@ -361,9 +388,9 @@ to-report search-bid
   let list-to-bid []
   ifelse length deck >= 50 [
     set worst get-worst-card
-    set list-to-bid [who] of auctions with [((card-type = first [liking] of player pid) or (card-type = last [liking] of player pid)) and (worst < card-value) and (auction-price <= ([devotion] of player pid * [money] of player pid ))]
+    set list-to-bid [who] of auctions with [((card-type = first [liking] of player pid) or (card-type = last [liking] of player pid)) and (worst < card-value) and (auction-price <= ([devotion * money] of player pid ))]
   ][
-    set list-to-bid [who] of auctions with [((card-type = first [liking] of player pid) or (card-type = last [liking] of player pid)) and (auction-price <= ([devotion] of player pid * [money] of player pid ))]
+    set list-to-bid [who] of auctions with [((card-type = first [liking] of player pid) or (card-type = last [liking] of player pid)) and (auction-price <= ([devotion * money] of player pid  ))]
   ]
   if (length list-to-bid) = 0[
    ;reporta 1 si no hay ninguna
@@ -377,15 +404,19 @@ to-report search-bid
 
 
   foreach list-to-bid[
-    ;TODO hacer mejor algoritmo para que haya casos en los que no puje y ahorra
-    ifelse  ([card-value] of auction ? > [card-value] of auction auction-to-bid) and ([auction-price] of auction ? <= (devotion * money))[
-      set auction-to-bid ?
-    ][
-      if ([card-value] of auction ? = [card-value] of auction auction-to-bid) and ([auction-price] of auction ? < [auction-price] of auction auction-to-bid)[
+    ifelse type-of-player = 1[
+      ifelse  ([card-value] of auction ? > [card-value] of auction auction-to-bid) and ([auction-price] of auction ? <= (devotion * money))[
         set auction-to-bid ?
-      ]
-    ]
+      ][
+        if ([card-value] of auction ? = [card-value] of auction auction-to-bid) and ([auction-price] of auction ? < [auction-price] of auction auction-to-bid)[
+          set auction-to-bid ?
+        ]
 
+      ]
+    ][
+      set auction-to-bid one-of list-to-bid
+
+    ]
   ]
   ifelse not-to-bid = true [
 
@@ -424,6 +455,7 @@ to process-message-player [kind card-transaction price]
     classify-card card-transaction
     set ticks-not-won 0
     print (word self " subastada carta " card-transaction " como  " [card-type ] of card card-transaction " " [card-value] of card card-transaction  " por "price " dinero")
+    set inversion (inversion + price)
   ]
 
   if kind = "Sold" [
@@ -453,21 +485,31 @@ to send-bid [recipient]
     set next-messages lput (myself) next-messages
   ]
 end
-<<<<<<< HEAD
-=======
+
 
 to duel [rival]
    ifelse mean map[[card-value] of card ?] deck > mean map[[card-value] of card ?] ([deck] of  player rival)[
     set devotion (devotion + 0.01)
-    ask player rival [set devotion (devotion - 0.01)]
-  ][
-    set devotion (devotion - 0.01)
-    ask player rival [set devotion (devotion + 0.01)]
+    set duels (duels + 1)
+    set duels-won (duels-won + 1)
+    ask player rival [
+      set devotion (devotion - 0.01)
+      set duels (duels + 1)
+    ]
+   ][
+
+    if mean map[[card-value] of card ?] deck < mean map[[card-value] of card ?] ([deck] of  player rival)[
+      set devotion (devotion - 0.01)
+      set duels (duels + 1)
+      ask player rival [
+        set devotion (devotion + 0.01)
+        set duels (duels + 1)
+        set duels-won (duels-won + 1)
+      ]
+    ]
   ]
 end
 
-
->>>>>>> origin/master
 @#$#@#$#@
 GRAPHICS-WINDOW
 185
@@ -588,19 +630,19 @@ PLOT
 141
 762
 291
-Deck number of cards
+Inversions
 Ticks
-Num cards  in deck
+mean inversion
 0.0
 100.0
 0.0
 50.0
-false
 true
+false
 "" ""
 PENS
-"Mean " 1.0 0 -16777216 true "" "plot mean ([length deck] of players)"
-"Max" 1.0 0 -2674135 true "" "plot max ([length deck] of players)"
+"Tipus 1" 1.0 0 -2674135 true "" "plot mean ([inversion] of players with[type-of-player = 1])"
+"Tipus 2" 1.0 0 -13345367 true "" "plot mean ([inversion] of players with[type-of-player = 2])"
 
 PLOT
 846
@@ -618,8 +660,9 @@ true
 false
 "" ""
 PENS
-"Mean" 1.0 0 -16777216 true "" "plot mean [mean (map [[card-value] of card ?] deck)] of players with [length deck > 0] ;[card-value] of card ?"
-"Max mean" 1.0 0 -2674135 true "" "plot max [mean map [[card-value] of card ?] deck] of players with [length deck > 0]"
+"Tipus 1" 1.0 0 -2674135 true "" "plot mean [mean (map [[card-value] of card ?] deck)] of players with [length deck > 0 and type-of-player = 1] ;[card-value] of card ?"
+"Tipus 2" 1.0 0 -13345367 true "" "plot mean [mean map [[card-value] of card ?] deck] of players with [length deck > 0 and type-of-player = 2]"
+"Tipus 3" 1.0 0 -13840069 true "" "if count players with[type-of-player = 3 ] > 0[\nplot mean [mean map [[card-value] of card ?] deck] of players with [length deck > 0 and type-of-player = 3]\n]"
 
 PLOT
 1127
@@ -685,7 +728,7 @@ Price
 0.0
 10.0
 true
-true
+false
 "" ""
 PENS
 "mean" 1.0 0 -16777216 true "" "plot mean [auction-price] of auctions"
@@ -719,8 +762,8 @@ PLOT
 1020
 867
 Bid per auction
-Num of bid
 Ticks
+Num of bid
 0.0
 10.0
 0.0
@@ -760,9 +803,9 @@ SLIDER
 183
 pack-price
 pack-price
-0
-1000
-102
+1
+200
+25
 1
 1
 NIL
@@ -803,7 +846,7 @@ prob-pack
 prob-pack
 0
 100
-64
+3
 1
 1
 NIL
@@ -829,7 +872,7 @@ initial-packs
 initial-packs
 0
 10
-5
+2
 1
 1
 NIL
@@ -844,7 +887,7 @@ percent-up-auction
 percent-up-auction
 1
 50
-10
+16
 1
 1
 %
@@ -881,7 +924,7 @@ initial-money-min
 initial-money-min
 10
 1000
-100
+96
 1
 1
 NIL
@@ -911,7 +954,7 @@ prob-create-player
 prob-create-player
 1
 100
-8
+14
 1
 1
 %
@@ -927,6 +970,136 @@ mean [devotion] of players
 17
 1
 11
+
+SLIDER
+135
+421
+307
+454
+duel-chance
+duel-chance
+1
+100
+9
+1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+550
+878
+700
+896
+Duel info
+14
+0.0
+1
+
+PLOT
+546
+901
+1448
+1224
+Rate of wins by algorithms
+Ticks
+Rate of wins
+0.0
+10.0
+0.0
+100.0
+true
+true
+"" ""
+PENS
+"Tipus 1" 1.0 0 -2674135 true "" "if count players with[type-of-player = 1 and duels > 0] > 0[\nplot mean[ (duels-won  / duels) * 100] of players with[type-of-player = 1 and duels > 0]\n]"
+"Tipus 2" 1.0 0 -13345367 true "" "if count players with[type-of-player = 2 and duels > 0] > 0[\nplot mean[ (duels-won  / duels) * 100] of players with[type-of-player = 2 and duels > 0]\n]"
+"Tipus 3" 1.0 0 -13840069 true "" "if count players with[type-of-player = 3 and duels > 0] > 0[\n plot mean[ (duels-won  / duels) * 100] of players with[type-of-player = 3 and duels > 0]\n ]"
+
+CHOOSER
+145
+474
+283
+519
+questions
+questions
+1 2
+0
+
+PLOT
+546
+1229
+1445
+1575
+Ratio winig  and inversion
+Ticks
+Ratio
+0.0
+10.0
+0.0
+100.0
+true
+true
+"" ""
+PENS
+"Tipus 1" 1.0 0 -2674135 true "" "if count players with[type-of-player = 1 and duels > 0 and duels-won > 0] > 0[\nplot mean[ (inversion /((duels-won  / duels) * 100 )) * 100] of players with[type-of-player = 1 and duels > 0 and duels-won > 0]\n]"
+"Tipus 2" 1.0 0 -13345367 true "" "if count players with[type-of-player = 2 and duels > 0 and duels-won > 0] > 0[\nplot mean[ (inversion /((duels-won  / duels) * 100 )) * 100] of players with[type-of-player = 2 and duels > 0 and duels-won > 0]\n]"
+"Tipus 3" 1.0 0 -13840069 true "" "if count players with[type-of-player = 3 and duels > 0 and duels-won > 0] > 0[\nplot mean[ (inversion /((duels-won  / duels) * 100 )) * 100] of players with[type-of-player = 3 and duels > 0 and duels-won > 0]\n ]"
+
+MONITOR
+594
+309
+683
+354
+Type player 1
+count players with [type-of-player = 1]
+17
+1
+11
+
+MONITOR
+724
+312
+813
+357
+Type player 2
+count players with [type-of-player = 2]
+17
+1
+11
+
+MONITOR
+848
+314
+937
+359
+Type player 3
+count players with [type-of-player = 3]
+17
+1
+11
+
+PLOT
+546
+1579
+1445
+1971
+Wining ratio by colors
+Ticks
+Ratio wining
+0.0
+10.0
+0.0
+100.0
+true
+true
+"" ""
+PENS
+"R" 1.0 0 -2674135 true "" "if count players with[(first liking = \"R\" or Last liking = \"R\")  and duels > 0] > 0[\nplot mean[ (duels-won  / duels) * 100] of players with[(first liking = \"R\" or Last liking = \"R\") and duels > 0]\n]"
+"B" 1.0 0 -16777216 true "" "if count players with[(first liking = \"B\" or Last liking = \"B\")  and duels > 0] > 0[\nplot mean[ (duels-won  / duels) * 100] of players with[(first liking = \"B\" or Last liking = \"B\") and duels > 0]\n]"
+"C" 1.0 0 -13791810 true "" "if count players with[(first liking = \"C\" or Last liking = \"C\")  and duels > 0] > 0[\nplot mean[ (duels-won  / duels) * 100] of players with[(first liking = \"C\" or Last liking = \"C\") and duels > 0]\n]"
+"G" 1.0 0 -13840069 true "" "if count players with[(first liking = \"G\" or Last liking = \"G\")  and duels > 0] > 0[\nplot mean[ (duels-won  / duels) * 100] of players with[(first liking = \"G\" or Last liking = \"G\") and duels > 0]\n]"
+"W" 1.0 0 -526419 true "" "if count players with[(first liking = \"W\" or Last liking = \"W\")  and duels > 0] > 0[\nplot mean[ (duels-won  / duels) * 100] of players with[(first liking = \"W\" or Last liking = \"W\") and duels > 0]\n]"
 
 @#$#@#$#@
 ## WHAT IS IT?
