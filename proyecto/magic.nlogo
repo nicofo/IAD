@@ -163,6 +163,19 @@ to go
       set auction-creation-messages lput (list who queue-pile) auction-creation-messages
       set active-auction true
     ]
+
+    ;; retar jugadors
+
+    if (length deck >= 50) and (random (100 - duel-chance) = 0)[
+      let p who
+      let enemy-list [who] of players with [(length deck >= 50) and (p != who)]
+      if (length enemy-list > 0)[
+        duel one-of enemy-list
+      ]
+    ]
+
+
+    ;; matar agent
     if (devotion <= -0.5)[
       die
     ]
@@ -440,6 +453,21 @@ to send-bid [recipient]
     set next-messages lput (myself) next-messages
   ]
 end
+<<<<<<< HEAD
+=======
+
+to duel [rival]
+   ifelse mean map[[card-value] of card ?] deck > mean map[[card-value] of card ?] ([deck] of  player rival)[
+    set devotion (devotion + 0.01)
+    ask player rival [set devotion (devotion - 0.01)]
+  ][
+    set devotion (devotion - 0.01)
+    ask player rival [set devotion (devotion + 0.01)]
+  ]
+end
+
+
+>>>>>>> origin/master
 @#$#@#$#@
 GRAPHICS-WINDOW
 185
