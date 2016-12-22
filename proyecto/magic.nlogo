@@ -509,7 +509,6 @@ to duel [rival]
     ]
   ]
 end
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 185
@@ -643,6 +642,7 @@ false
 PENS
 "Tipus 1" 1.0 0 -2674135 true "" "plot mean ([inversion] of players with[type-of-player = 1])"
 "Tipus 2" 1.0 0 -13345367 true "" "plot mean ([inversion] of players with[type-of-player = 2])"
+"pen-2" 1.0 0 -13840069 true "" "if count players with[type-of-player = 3 ] > 0[\nplot mean ([inversion] of players with[type-of-player = 3])\n]"
 
 PLOT
 846
@@ -776,10 +776,10 @@ PENS
 "Max" 1.0 0 -2674135 true "" "plot max [length actual-messages] of auctions"
 
 MONITOR
-138
-597
-230
-642
+1168
+650
+1260
+695
 Packs Opened
 acc-pack
 17
@@ -787,10 +787,10 @@ acc-pack
 11
 
 TEXTBOX
-139
-572
-289
-590
+1169
+625
+1319
+643
 Balances
 14
 0.0
@@ -805,7 +805,7 @@ pack-price
 pack-price
 1
 200
-25
+101
 1
 1
 NIL
@@ -827,10 +827,10 @@ NIL
 HORIZONTAL
 
 MONITOR
-261
-596
-364
-641
+1291
+649
+1394
+694
 NIL
 acc-pack-money
 17
@@ -1024,7 +1024,7 @@ CHOOSER
 questions
 questions
 1 2
-0
+1
 
 PLOT
 546
